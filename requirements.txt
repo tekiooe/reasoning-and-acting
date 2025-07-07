@@ -1,0 +1,8 @@
+langchain
+langchain_community
+langchain_openai
+langchain_anthropic
+google.generativeai
+openai
+python-dotenv
+requests
