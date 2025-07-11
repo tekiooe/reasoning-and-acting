@@ -1,7 +1,13 @@
 from actions import (
-    calculate, search_wikipedia, company_basic_information, 
-    stock_trade_information, trading_guide, finance_terms_and_basic_knowledge,
-    get_upCode, get_sectorCode, get_jongCode
+    calculate,
+    search_wikipedia,
+    company_basic_information,
+    stock_trade_information,
+    trading_guide,
+    finance_terms_and_basic_knowledge,
+    get_upCode,
+    get_sectorCode,
+    get_jongCode,
 )
 
 tools = {
@@ -13,7 +19,7 @@ def calculate(expression: str) -> str:
     expression을 계산하여 결과를 반환
     \"\"\"
     return str(result)
-"""
+""",
     },
     "company_basic_information": {
         "func": company_basic_information,
@@ -30,7 +36,7 @@ def company_basic_information(jongCode: str) -> dict:
     \"addr\": \"서울특별시 강남구 테헤란로 309 삼성제일빌딩, 5층\",
     \"summary\": \"주요 사업으로는 인공지능 데이터 구축 서비스 ...\"
     }}
-"""
+""",
     },
     "stock_trade_information": {
         "func": stock_trade_information,
@@ -60,7 +66,7 @@ def stock_trade_information(jongCode: str, fromDate: str, toDate: str) -> dict:
     \"개인매도금액(원)\": 291692130000,
     \"개인순매수금액(원)\": 37514650000
     }}
-"""
+""",
     },
     "trading_guide": {
         "func": trading_guide,
@@ -74,7 +80,7 @@ def stock_trade_information(jongCode: str, fromDate: str, toDate: str) -> dict:
     return {{
     \"answer\": \"응답\"
     }}
-"""
+""",
     },
     "finance_terms_and_basic_knowledge": {
         "func": finance_terms_and_basic_knowledge,
@@ -88,7 +94,7 @@ def stock_trade_information(jongCode: str, fromDate: str, toDate: str) -> dict:
     return {{
     \"answer\": \"응답\"
     }}
-"""
+""",
     },
     "get_upCode": {
         "func": get_upCode,
@@ -103,7 +109,7 @@ def stock_trade_information(jongCode: str, fromDate: str, toDate: str) -> dict:
     return {{
     \"upCode\": None
     }}
-"""
+""",
     },
     "get_sectorCode": {
         "func": get_sectorCode,
@@ -119,7 +125,7 @@ def stock_trade_information(jongCode: str, fromDate: str, toDate: str) -> dict:
     return {{
     \"sectorCode\": \"0\"
     }}
-"""
+""",
     },
     "get_jongCode": {
         "func": get_jongCode,
@@ -134,6 +140,6 @@ def stock_trade_information(jongCode: str, fromDate: str, toDate: str) -> dict:
     return {{
     \"jongCode\": None
     }}
-"""
-    }
+""",
+    },
 }

@@ -35,10 +35,15 @@ if not anthropic_api_key:
 # Initialize LLM client
 ################################################################################
 # llm = ChatAnthropic(temperature=0, anthropic_api_key=anthropic_api_key, model="claude-3-5-sonnet-20241022")
-llm = ChatAnthropic(temperature=0, anthropic_api_key=anthropic_api_key, model="claude-3-5-haiku-20241022")
+llm = ChatAnthropic(
+    temperature=0,
+    anthropic_api_key=anthropic_api_key,
+    model="claude-3-5-haiku-20241022",
+)
 # llm = ChatOpenAI(temperature=0, openai_api_key=openai_api_key, model="gpt-4.1-nano")
 # llm = ChatOpenAI(temperature=0, openai_api_key=openai_api_key, model="gpt-4.1-mini")
 #################################################################################
+
 
 def format_param_description(param_info: List[Dict]) -> str:
     """
@@ -57,34 +62,32 @@ def format_param_description(param_info: List[Dict]) -> str:
     """
     descriptions = []
     for param in param_info:
-        descriptions.append(f"'{param.get("name")} ({param.get("type")})': {param.get("description")}")
-    
+        descriptions.append(
+            f"'{param.get("name")} ({param.get("type")})': {param.get("description")}"
+        )
+
     return ", ".join(descriptions)
+
 
 def parse_llm_output(llm_output: str) -> Dict[str, str]:
     """Parse LLM output to extract action and action input"""
     if "Final Answer:" in llm_output:
         return {
             "type": "final_answer",
-            "answer": llm_output.split("Final Answer:")[-1].strip()
+            "answer": llm_output.split("Final Answer:")[-1].strip(),
         }
-    
+
     # Look for Action and Action Input
     action_match = re.search(r"Action: (.*?)(?:\n|$)", llm_output)
-    
+
     if action_match:
         # Split actions by '&&' and strip whitespace
         actions = [action.strip() for action in action_match.group(1).split("&&")]
         print(f"### actions: {actions}")
-        return {
-            "type": "action",
-            "actions": actions
-        }
-    
-    return {
-        "type": "error",
-        "error": f"Could not parse LLM output: {llm_output}"
-    }
+        return {"type": "action", "actions": actions}
+
+    return {"type": "error", "error": f"Could not parse LLM output: {llm_output}"}
+
 
 def execute_tool(action: str) -> str:
     """Execute a tool with the given input"""
@@ -103,11 +106,11 @@ def execute_tool(action: str) -> str:
 def run_react_agent(query: str, max_iterations: int = 10) -> str:
     """
     Run the ReAct agent with the given query
-    
+
     Args:
         query (str): The question to ask the agent
         max_iterations (int): Maximum number of reasoning iterations
-        
+
     Returns:
         str: The agent's response
     """
@@ -115,32 +118,43 @@ def run_react_agent(query: str, max_iterations: int = 10) -> str:
         conversation_history = []
         agent_scratchpad = ""
         iters = 1
-        
+
         while max_iterations > iters:
             iters += 1
             # Create the prompt for this iteration
             prompt_template = create_react_prompt(tools, conversation_history)
             prompt = PromptTemplate(
-                template=prompt_template,
-                input_variables=["input", "agent_scratchpad"]
+                template=prompt_template, input_variables=["input", "agent_scratchpad"]
             )
-            
-            print(f"************[prompt]************\n{prompt.format(input=query, agent_scratchpad=agent_scratchpad)}\n********************************")
-            
+
+            print(
+                f"************[prompt]************\n{prompt.format(input=query, agent_scratchpad=agent_scratchpad)}\n********************************"
+            )
+
             # Get LLM response
-            llm_response = llm.invoke(prompt.format(input=query, agent_scratchpad=agent_scratchpad))
+            llm_response = llm.invoke(
+                prompt.format(input=query, agent_scratchpad=agent_scratchpad)
+            )
             # ChatOpenAI는 AIMessage 객체를 반환하므로 content를 추출
-            llm_response_text = llm_response.content if hasattr(llm_response, 'content') else str(llm_response)
-            print(f"----------[llm_response]----------\n{llm_response_text}\n----------------------------------")
-            
+            llm_response_text = (
+                llm_response.content
+                if hasattr(llm_response, "content")
+                else str(llm_response)
+            )
+            print(
+                f"----------[llm_response]----------\n{llm_response_text}\n----------------------------------"
+            )
+
             # Parse the response
             parsed = parse_llm_output(llm_response_text)
             # print(f"### parsed: {parsed}")
-            
+
             if parsed["type"] == "final_answer":
-                print(f"--------[agent_scratchpad]--------\n{agent_scratchpad}\n{llm_response_text}\n---------------------------------")
+                print(
+                    f"--------[agent_scratchpad]--------\n{agent_scratchpad}\n{llm_response_text}\n---------------------------------"
+                )
                 return parsed["answer"]
-            
+
             elif parsed["type"] == "action":
                 # Execute the tool
                 observation = ""
@@ -150,10 +164,20 @@ def run_react_agent(query: str, max_iterations: int = 10) -> str:
                     if isinstance(result_data, list):
                         # Handle list of dictionaries
                         if result_data:  # Check if list is not empty
-                            result_md = "| " + " | ".join(result_data[0].keys()) + " |\n"
-                            result_md += "| " + " | ".join(["---"] * len(result_data[0].keys())) + " |\n"
+                            result_md = (
+                                "| " + " | ".join(result_data[0].keys()) + " |\n"
+                            )
+                            result_md += (
+                                "| "
+                                + " | ".join(["---"] * len(result_data[0].keys()))
+                                + " |\n"
+                            )
                             for row in result_data:
-                                result_md += "| " + " | ".join(str(v) for v in row.values()) + " |\n"
+                                result_md += (
+                                    "| "
+                                    + " | ".join(str(v) for v in row.values())
+                                    + " |\n"
+                                )
                             result_md = result_md.rstrip()  # Remove trailing newline
                         else:
                             result_md = "Empty result list"
@@ -161,25 +185,39 @@ def run_react_agent(query: str, max_iterations: int = 10) -> str:
                         result_md = str(result_data)
                         # Handle single dictionary
                         result_md = "| " + " | ".join(result_data.keys()) + " |\n"
-                        result_md += "| " + " | ".join(["---"] * len(result_data.keys())) + " |\n"
-                        result_md += "| " + " | ".join(str(v) for v in result_data.values()) + " |"
+                        result_md += (
+                            "| "
+                            + " | ".join(["---"] * len(result_data.keys()))
+                            + " |\n"
+                        )
+                        result_md += (
+                            "| "
+                            + " | ".join(str(v) for v in result_data.values())
+                            + " |"
+                        )
                     else:
                         result_md = str(result_data)
                     observation += result_md + "\n"
-                    
-                print(f"----------[observation]----------\n{observation}\n---------------------------------")
-                
+
+                print(
+                    f"----------[observation]----------\n{observation}\n---------------------------------"
+                )
+
                 # Add to scratchpad
-                agent_scratchpad += f"\n{llm_response_text}\nObservation: \n{observation}\n"
-                
+                agent_scratchpad += (
+                    f"\n{llm_response_text}\nObservation: \n{observation}\n"
+                )
+
                 # Add to conversation history for context
-                conversation_history.append(f"Actions: {', '.join(parsed['actions'])}\nObservation: {observation}")
-                
+                conversation_history.append(
+                    f"Actions: {', '.join(parsed['actions'])}\nObservation: {observation}"
+                )
+
             else:
                 return f"Error: {parsed['error']}"
-        
+
         return f"Error: Maximum iterations ({max_iterations}) reached without finding a final answer."
-        
+
     except Exception as e:
         logger.error(f"Error running ReAct agent: {str(e)}")
         return f"Error: {str(e)}"
@@ -188,7 +226,7 @@ def run_react_agent(query: str, max_iterations: int = 10) -> str:
 if __name__ == "__main__":
     # 프롬프트 버전 정보 출력
     print(f"{'='*10}Using prompt version: {get_prompt_version()}{'='*10}")
-    
+
     # Test with different types of queries
     test_queries = [
         # "What is 15 * 23?",
@@ -208,7 +246,7 @@ if __name__ == "__main__":
         # "2 * 15 랑 15 * 2 의 차이는 얼마야?",
         # "2 * 15 * 30 은 삼성전자 설립 년도보다 커?",
     ]
-    
+
     for query in test_queries:
         print(f"\n{'='*50}")
         print(f"Query: {query}")
