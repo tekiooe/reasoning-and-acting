@@ -1,16 +1,20 @@
 import re
+import json
 import logging
 import os
 import sys
 from typing import Dict, List
 from dotenv import load_dotenv
-from langchain_openai import OpenAI, ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
+
+from datetime import datetime
 
 # Add parent directory to path to import re_act_actions
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from prompt_utils import create_react_prompt, get_prompt_version
+from prompt_utils import get_prompt_version, load_prompt_template
 from tools import tools
 
 # Set up logging
@@ -31,18 +35,24 @@ if not anthropic_api_key:
     raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
 
 
-################################################################################
+
 # Initialize LLM client
-################################################################################
-# llm = ChatAnthropic(temperature=0, anthropic_api_key=anthropic_api_key, model="claude-3-5-sonnet-20241022")
-llm = ChatAnthropic(
-    temperature=0,
-    anthropic_api_key=anthropic_api_key,
-    model="claude-3-5-haiku-20241022",
-)
-# llm = ChatOpenAI(temperature=0, openai_api_key=openai_api_key, model="gpt-4.1-nano")
-# llm = ChatOpenAI(temperature=0, openai_api_key=openai_api_key, model="gpt-4.1-mini")
-#################################################################################
+model_name = os.getenv("MODEL_NAME", "gemini-2.5-flash")
+
+if model_name == "gemini-2.5-flash":
+    llm = ChatGoogleGenerativeAI(temperature=0, google_api_key=os.getenv("GOOGLE_API_KEY"), model="gemini-2.5-flash")
+elif model_name == "gemini-2.5-flash-lite-preview-06-17":
+    llm = ChatGoogleGenerativeAI(temperature=0, google_api_key=os.getenv("GOOGLE_API_KEY"), model="gemini-2.5-flash-lite-preview-06-17")
+elif model_name == "gpt-4.1-mini":
+    llm = ChatOpenAI(temperature=0, openai_api_key=openai_api_key, model="gpt-4.1-mini")
+elif model_name == "gpt-4.1-nano":
+    llm = ChatOpenAI(temperature=0, openai_api_key=openai_api_key, model="gpt-4.1-nano")
+elif model_name == "claude-3-5-sonnet-20241022":
+    llm = ChatAnthropic(temperature=0, anthropic_api_key=anthropic_api_key, model="claude-3-5-sonnet-20241022")
+elif model_name == "claude-3-5-haiku-20241022":
+    llm = ChatAnthropic(temperature=0, anthropic_api_key=anthropic_api_key, model="claude-3-5-haiku-20241022")
+else:
+    raise ValueError(f"Invalid model name: {model_name}")
 
 
 def format_param_description(param_info: List[Dict]) -> str:
@@ -76,15 +86,60 @@ def parse_llm_output(llm_output: str) -> Dict[str, str]:
             "type": "final_answer",
             "answer": llm_output.split("Final Answer:")[-1].strip(),
         }
+    elif "⟦status:start:answer⟧" in llm_output:
+        return {
+            "type": "final_answer",
+            "answer": llm_output.split("⟦status:start:answer⟧")[-1]
+            .split("⟦status:end:answer⟧")[0]
+            .strip(),
+        }
 
     # Look for Action and Action Input
     action_match = re.search(r"Action: (.*?)(?:\n|$)", llm_output)
 
-    if action_match:
+    if re.search(r"Action: (.*?)(?:\n|$)", llm_output):
         # Split actions by '&&' and strip whitespace
         actions = [action.strip() for action in action_match.group(1).split("&&")]
-        print(f"### actions: {actions}")
         return {"type": "action", "actions": actions}
+    elif (
+        "⟦status:start:thought⟧" in llm_output and "⟦status:start:action⟧" in llm_output
+    ):
+        actions = json.loads(
+                    llm_output.split("⟦status:start:action⟧")[-1]
+                    .split("⟦status:end:action⟧")[0]
+                    .strip(),
+                )
+        if isinstance(actions, list):
+            return {
+                "type": "action",
+                "thought": llm_output.split("⟦status:start:thought⟧")[-1]
+                .split("⟦status:end:thought⟧")[0]
+                .strip(),
+                "actions": [
+                    f"{action['name']}({', '.join([f'{k}={v if isinstance(v, int) else repr(v)}' for k, v in action['inputs'].items()])})"
+                    for action in json.loads(
+                        llm_output.split("⟦status:start:action⟧")[-1]
+                        .split("⟦status:end:action⟧")[0]
+                        .strip(),
+                    )
+                ],
+            }
+        elif isinstance(actions, dict):
+            #### TO DO: actions 값 처리 필요
+            return {
+                "type": "action",
+                "thought": llm_output.split("⟦status:start:thought⟧")[-1]
+                .split("⟦status:end:thought⟧")[0]
+                .strip(),
+                "actions": [
+                    f"{action['name']}({', '.join([f'{k}={v if isinstance(v, int) else repr(v)}' for k, v in action['inputs'].items()])})"
+                    for action in json.loads(
+                        llm_output.split("⟦status:start:action⟧")[-1]
+                        .split("⟦status:end:action⟧")[0]
+                        .strip(),
+                    )
+                ],
+            }
 
     return {"type": "error", "error": f"Could not parse LLM output: {llm_output}"}
 
@@ -92,18 +147,73 @@ def parse_llm_output(llm_output: str) -> Dict[str, str]:
 def execute_tool(action: str) -> str:
     """Execute a tool with the given input"""
     # print(f"[execute_tool] {action}")
+    # Check if action is empty or None
+    if not action or not isinstance(action, str):
+        logger.error(f"Invalid action: {action}")
+        return "Action Execution Error: Invalid action"
+
+    # Check if action contains only allowed function names
+    allowed_funcs = tools.keys()
+    func_name = action.split("(")[0] if "(" in action else action
+    if func_name not in allowed_funcs:
+        logger.error(f"Function {func_name} not found in allowed tools")
+        return f"Action Execution Error: Function {func_name} not allowed"
+
     try:
-        # 직접 action 문자열을 eval하여 실행
-        # tools 딕셔너리의 함수들만 사용 가능하도록 제한된 환경에서 실행
+        # Execute action with restricted globals
         allowed_globals = {name: info["func"] for name, info in tools.items()}
         result = eval(action, {"__builtins__": {}}, allowed_globals)
         return str(result)
+    # except NameError as e:
+    #     logger.error(f"Name error in action {action}: {str(e)}")
+    #     return f"Action Execution Error: Invalid function or variable name - {str(e)}"
+    # except SyntaxError as e:
+    #     logger.error(f"Syntax error in action {action}: {str(e)}")
+    #     return f"Action Execution Error: Invalid syntax in action - {str(e)}"
     except Exception as e:
-        logger.error(f"Error executing action {action}: {str(e)}")
-        return f"Error executing action: {str(e)}"
+        logger.error(f" >>>> Error executing action {action}: {str(e)}")
+        return f"Action Execution Error: {str(e)}"
 
+def format_observation(result_data: str) -> str:
+    if isinstance(result_data, list):
+        # Handle list of dictionaries
+        if result_data:  # Check if list is not empty
+            result_md = (
+                "| " + " | ".join(result_data[0].keys()) + " |\n"
+            )
+            result_md += (
+                "| "
+                + " | ".join(["---"] * len(result_data[0].keys()))
+                + " |\n"
+            )
+            for row in result_data:
+                result_md += (
+                    "| "
+                    + " | ".join(str(v) for v in row.values())
+                    + " |\n"
+                )
+            result_md = result_md.rstrip()  # Remove trailing newline
+        else:
+            result_md = "Empty result list"
+    elif isinstance(result_data, dict):
+        result_md = str(result_data)
+        # Handle single dictionary
+        result_md = "| " + " | ".join(result_data.keys()) + " |\n"
+        result_md += (
+            "| "
+            + " | ".join(["---"] * len(result_data.keys()))
+            + " |\n"
+        )
+        result_md += (
+            "| "
+            + " | ".join(str(v) for v in result_data.values())
+            + " |"
+        )
+    else:
+        result_md = str(result_data)
+    return result_md
 
-def run_react_agent(query: str, max_iterations: int = 10) -> str:
+def run_react_agent(params: dict) -> str:
     """
     Run the ReAct agent with the given query
 
@@ -115,26 +225,24 @@ def run_react_agent(query: str, max_iterations: int = 10) -> str:
         str: The agent's response
     """
     try:
-        conversation_history = []
-        agent_scratchpad = ""
-        iters = 1
-
-        while max_iterations > iters:
-            iters += 1
+        
+        while params["max_iterations"] > params["iters"]:
+            params["iters"] += 1
             # Create the prompt for this iteration
-            prompt_template = create_react_prompt(tools, conversation_history)
-            prompt = PromptTemplate(
-                template=prompt_template, input_variables=["input", "agent_scratchpad"]
+            prompt_template = load_prompt_template()
+            # print(f"************[prompt_template]************\n{prompt_template}\n********************************")
+            prompt = PromptTemplate.from_template(
+                template=prompt_template
             )
+            full_prompt = prompt.format(**params)
 
-            print(
-                f"************[prompt]************\n{prompt.format(input=query, agent_scratchpad=agent_scratchpad)}\n********************************"
-            )
+            # print(
+            #     f"************[prompt]************\n{full_prompt}\n********************************"
+            # )
 
             # Get LLM response
-            llm_response = llm.invoke(
-                prompt.format(input=query, agent_scratchpad=agent_scratchpad)
-            )
+            llm_response = llm.invoke(full_prompt)
+
             # ChatOpenAI는 AIMessage 객체를 반환하므로 content를 추출
             llm_response_text = (
                 llm_response.content
@@ -142,81 +250,33 @@ def run_react_agent(query: str, max_iterations: int = 10) -> str:
                 else str(llm_response)
             )
             print(
-                f"----------[llm_response]----------\n{llm_response_text}\n----------------------------------"
+                f"************[llm_response]************\n{llm_response_text}\n********************************"
             )
 
             # Parse the response
             parsed = parse_llm_output(llm_response_text)
-            # print(f"### parsed: {parsed}")
 
             if parsed["type"] == "final_answer":
-                print(
-                    f"--------[agent_scratchpad]--------\n{agent_scratchpad}\n{llm_response_text}\n---------------------------------"
-                )
                 return parsed["answer"]
 
             elif parsed["type"] == "action":
                 # Execute the tool
                 observation = ""
+                actions_history = []
                 for action in parsed["actions"]:
-                    result = execute_tool(action)
-                    result_data = eval(result)
-                    if isinstance(result_data, list):
-                        # Handle list of dictionaries
-                        if result_data:  # Check if list is not empty
-                            result_md = (
-                                "| " + " | ".join(result_data[0].keys()) + " |\n"
-                            )
-                            result_md += (
-                                "| "
-                                + " | ".join(["---"] * len(result_data[0].keys()))
-                                + " |\n"
-                            )
-                            for row in result_data:
-                                result_md += (
-                                    "| "
-                                    + " | ".join(str(v) for v in row.values())
-                                    + " |\n"
-                                )
-                            result_md = result_md.rstrip()  # Remove trailing newline
-                        else:
-                            result_md = "Empty result list"
-                    elif isinstance(result_data, dict):
-                        result_md = str(result_data)
-                        # Handle single dictionary
-                        result_md = "| " + " | ".join(result_data.keys()) + " |\n"
-                        result_md += (
-                            "| "
-                            + " | ".join(["---"] * len(result_data.keys()))
-                            + " |\n"
-                        )
-                        result_md += (
-                            "| "
-                            + " | ".join(str(v) for v in result_data.values())
-                            + " |"
-                        )
-                    else:
-                        result_md = str(result_data)
-                    observation += result_md + "\n"
-
-                print(
-                    f"----------[observation]----------\n{observation}\n---------------------------------"
-                )
+                    actions_history.append(action)
+                    observation += f"## {action}\n" + format_observation(execute_tool(action)) + "\n\n"
 
                 # Add to scratchpad
-                agent_scratchpad += (
-                    f"\n{llm_response_text}\nObservation: \n{observation}\n"
+                params["agent_scratchpad"] += (
+                    f"\nThought: {parsed['thought']}\n\nAction: {' && '.join(actions_history)}\n\nObservation: \n{observation}"
                 )
-
-                # Add to conversation history for context
-                conversation_history.append(
-                    f"Actions: {', '.join(parsed['actions'])}\nObservation: {observation}"
-                )
+                print(f"### params['agent_scratchpad']: {params['agent_scratchpad']}")
 
             else:
                 return f"Error: {parsed['error']}"
 
-        return f"Error: Maximum iterations ({max_iterations}) reached without finding a final answer."
+        return f"Error: Maximum iterations ({params['max_iterations']}) reached without finding a final answer."
 
     except Exception as e:
         logger.error(f"Error running ReAct agent: {str(e)}")
@@ -233,14 +293,14 @@ if __name__ == "__main__":
         # "Calculate the square root of 144",
         # "What is the capital of France?",
         # "Tell me about Samsung Electronics stock code",
-        "삼성전자 종목 코드 알려줘.",
+        # "삼성전자 종목 코드 알려줘.",
         # "compare the bigger: 15 * 23 and the square root of 144",
         # "삼성전자 회사 정보 알려줘.",
         # "삼성전자 거래 정보 요약해줘.",
         # "삼성전자 외국인 거래량 알려줘?",
         # "삼성전자 주가는 얼마인가요?"
         # "삼성전자 주가랑 외국인 거래량 알려줘",
-        # "2 * 15 * 300 은 삼성전자 외국인 매수량보다 많아?"
+        "2 * 15 * 300 은 삼성전자 외국인 매수량보다 많아?"
         # "삼성전자 거래량 정보 알려줘.",
         # "삼성전자 회사 정보랑 외국인 거래량 알려줘"
         # "2 * 15 랑 15 * 2 의 차이는 얼마야?",
@@ -251,7 +311,23 @@ if __name__ == "__main__":
         print(f"\n{'='*50}")
         print(f"Query: {query}")
         print(f"{'='*50}")
-        result = run_react_agent(query)
+        result = run_react_agent(
+            {
+                "query": query,
+                "assistant_role": "당신은 function을 사용해 정확한 정보로 신뢰할 수 있는 답변을 제공합니다.",
+                "user_role": "사용자는 정확한 정보를 얻기 위해 당신에게 질문합니다.",
+                "today_date": datetime.now().strftime("%Y-%m-%d"),
+                "current_year": str(datetime.now().year),
+                "next_year": str(datetime.now().year + 1),
+                # "tools": tools,
+                "tools_description": "\n".join(
+                    [f"{info['description']}\n\n" for name, info in tools.items()]
+                ),
+                "agent_scratchpad": "",
+                "iters": 0,
+                "max_iterations": int(os.getenv("MAX_ITERATIONS", 10)),
+            }
+        )
         print(f"\n{'='*50}")
         print(f"Final Answer:\n{result}")
         print(f"{'='*50}")

@@ -2,7 +2,7 @@ langchain
 langchain_community
 langchain_openai
 langchain_anthropic
-google.generativeai
+langchain_google_genai
 openai
 python-dotenv
 requests

@@ -101,7 +101,7 @@ def company_basic_information(jongCode: str) -> dict:
     print(f"company_basic_information: jongCode={jongCode}")
     return {
         "isuNm": "삼성전자",
-        "isuEngNm": "CrowdWorks, inc.",
+        "isuEngNm": "Samsung Electronics",
         "foundDd": "2017/04/25",
         "ceo": "김우승",
         "addr": "서울특별시 강남구 테헤란로 309 삼성제일빌딩, 5층",

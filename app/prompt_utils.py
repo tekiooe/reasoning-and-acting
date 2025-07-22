@@ -1,6 +1,22 @@
 import os
 from typing import Dict, List
 from pathlib import Path
+from functools import reduce
+from datetime import datetime
+
+reserved_keywords = {
+    "{{param::assistant_role::textarea}}": "{assistant_role}",
+    "{{param::user_role::textarea}}": "{user_role}",
+    "{{resv::TODAY_DATE}}": "{today_date}",
+    "{{resv::CURRENT_YEAR}}": "{current_year}",
+    "{{resv::NEXT_YEAR}}": "{next_year}",
+    "{{choices::functions::inferenceUnit::multi}}": "{tools_description}",
+    # "{{param::observations::textarea}}": "{history_text}",
+    "{{param::user_query::textfield}}": "{query}",
+    "{{param::react_history::textarea}}": "{agent_scratchpad}",
+    "{{param::iters}}": "{iters}",
+    "{{param::max_iters}}": "{max_iterations}",
+}
 
 
 def get_prompt_version() -> str:
@@ -11,8 +27,10 @@ def get_prompt_version() -> str:
         str: 프롬프트 버전 정보
     """
     # 프롬프트 파일의 수정 시간을 기반으로 버전 정보 생성
-    current_dir = Path(__file__).parent
-    prompt_file_path = current_dir / "prompts" / "react_prompt_template.txt"
+    current_dir = Path(__file__).resolve()
+    prompt_file_path = (
+        current_dir.parent.parent / "prompts" / get_prompt_template_name()
+    )
 
     if prompt_file_path.exists():
         mtime = prompt_file_path.stat().st_mtime
@@ -50,7 +68,7 @@ def get_prompt_template_name() -> str:
     return PROMPT_TEMPLATE_NAME()
 
 
-def load_prompt_template(template_name: str) -> str:
+def load_prompt_template(template_name: str = get_prompt_template_name()) -> str:
     """
     프롬프트 템플릿 파일을 로드합니다.
 
@@ -61,8 +79,8 @@ def load_prompt_template(template_name: str) -> str:
         str: 로드된 프롬프트 템플릿
     """
     # 현재 파일의 디렉토리를 기준으로 prompts 디렉토리 경로 설정
-    current_dir = Path(__file__).parent
-    prompt_file_path = current_dir / "prompts" / template_name
+    current_dir = Path(__file__).resolve()
+    prompt_file_path = current_dir.parent.parent / "prompts" / template_name
 
     if not prompt_file_path.exists():
         raise FileNotFoundError(
@@ -70,25 +88,23 @@ def load_prompt_template(template_name: str) -> str:
         )
 
     with open(prompt_file_path, "r", encoding="utf-8") as f:
-        return f.read()
+        prompt = f.read()
 
-
-def format_prompt_params(*params) -> str:
-    """
-    프롬프트 파라미터를 포맷팅합니다.
-    """
-    params.query = params.query
-    params.agent_scratchpad = params.agent_scratchpad
-    params.tools_dict = "\n".join(
-        [f"{info['description']}\n\n" for name, info in params.tools_dict.items()]
+    # Filter out lines that start and end with /**** ****/: v8부터 Alpy 포맷으로 변경되었음.
+    filtered_prompt = "\n".join(
+        line
+        for line in prompt.splitlines()
+        if not (line.startswith("/****") and line.endswith("****/"))
     )
-    params.conversation_history = (
-        "\n".join(params.conversation_history) if params.conversation_history else ""
-    )
-    return params
+
+    # Replace reserved keywords: v8부터 Alpy 포맷으로 변경되었음.
+    for key, value in reserved_keywords.items():
+        filtered_prompt = filtered_prompt.replace(key, value)
+
+    return filtered_prompt
 
 
-def create_react_prompt(*params) -> str:
+def create_react_prompt(params: dict) -> str:
     """
     ReAct 프롬프트를 생성합니다.
 
@@ -96,12 +112,19 @@ def create_react_prompt(*params) -> str:
         str: 완성된 ReAct 프롬프트
     """
     # 프롬프트 템플릿 로드
-    template = load_prompt_template("react_prompt_template.txt")
+    template = load_prompt_template(get_prompt_template_name())
 
     # 템플릿 변수 치환
-    prompt = template.format(**format_prompt_params(*params))
+    prompt = template.format(**params)
 
     return prompt
+
+
+def print_prompt_in_alpy_format() -> str:
+    """
+    ReAct 프롬프트를 예약어와 블록 구분자를 포함한 alpy 포맷으로 출력합니다.
+    """
+    return
 
 
 if __name__ == "__main__":
