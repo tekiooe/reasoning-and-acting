@@ -16,6 +16,7 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prompt_utils import get_prompt_version, load_prompt_template
 from tools import tools
+from config import config
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -24,35 +25,20 @@ logger = logging.getLogger(__name__)
 # Load environment variables from .env file
 load_dotenv()
 
-# LoadOpenAI API Key
-openai_api_key = os.getenv("OPENAI_API_KEY")
-if not openai_api_key:
-    raise ValueError("OPENAI_API_KEY environment variable is not set")
-
-# Anthropic API Key
-anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-if not anthropic_api_key:
-    raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
-
-
 
 # Initialize LLM client
-model_name = os.getenv("MODEL_NAME", "gemini-2.5-flash")
+openai_models = ["gpt-4.1-mini", "gpt-4.1-nano"]
+gemini_modles = ["gemini-2.5-flash", "gemini-2.5-flash-lite-preview-06-17"]
+claude_models = ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"]
 
-if model_name == "gemini-2.5-flash":
-    llm = ChatGoogleGenerativeAI(temperature=0, google_api_key=os.getenv("GOOGLE_API_KEY"), model="gemini-2.5-flash")
-elif model_name == "gemini-2.5-flash-lite-preview-06-17":
-    llm = ChatGoogleGenerativeAI(temperature=0, google_api_key=os.getenv("GOOGLE_API_KEY"), model="gemini-2.5-flash-lite-preview-06-17")
-elif model_name == "gpt-4.1-mini":
-    llm = ChatOpenAI(temperature=0, openai_api_key=openai_api_key, model="gpt-4.1-mini")
-elif model_name == "gpt-4.1-nano":
-    llm = ChatOpenAI(temperature=0, openai_api_key=openai_api_key, model="gpt-4.1-nano")
-elif model_name == "claude-3-5-sonnet-20241022":
-    llm = ChatAnthropic(temperature=0, anthropic_api_key=anthropic_api_key, model="claude-3-5-sonnet-20241022")
-elif model_name == "claude-3-5-haiku-20241022":
-    llm = ChatAnthropic(temperature=0, anthropic_api_key=anthropic_api_key, model="claude-3-5-haiku-20241022")
+if config.model_name in openai_models:
+    llm = ChatOpenAI(temperature=0, openai_api_key=config.openai_api_key, model=config.model_name)
+elif config.model_name in gemini_modles:
+    llm = ChatGoogleGenerativeAI(temperature=0, google_api_key=config.google_api_key, model=config.model_name)
+elif config.model_name in claude_models:
+    llm = ChatAnthropic(temperature=0, anthropic_api_key=config.anthropic_api_key, model=config.model_name)
 else:
-    raise ValueError(f"Invalid model name: {model_name}")
+    raise ValueError(f"Unrecognized model name: {config.model_name}")
 
 
 def format_param_description(param_info: List[Dict]) -> str:
@@ -109,37 +95,22 @@ def parse_llm_output(llm_output: str) -> Dict[str, str]:
                     .split("⟦status:end:action⟧")[0]
                     .strip(),
                 )
-        if isinstance(actions, list):
-            return {
-                "type": "action",
-                "thought": llm_output.split("⟦status:start:thought⟧")[-1]
-                .split("⟦status:end:thought⟧")[0]
-                .strip(),
-                "actions": [
-                    f"{action['name']}({', '.join([f'{k}={v if isinstance(v, int) else repr(v)}' for k, v in action['inputs'].items()])})"
-                    for action in json.loads(
-                        llm_output.split("⟦status:start:action⟧")[-1]
-                        .split("⟦status:end:action⟧")[0]
-                        .strip(),
-                    )
-                ],
-            }
-        elif isinstance(actions, dict):
-            #### TO DO: actions 값 처리 필요
-            return {
-                "type": "action",
-                "thought": llm_output.split("⟦status:start:thought⟧")[-1]
-                .split("⟦status:end:thought⟧")[0]
-                .strip(),
-                "actions": [
-                    f"{action['name']}({', '.join([f'{k}={v if isinstance(v, int) else repr(v)}' for k, v in action['inputs'].items()])})"
-                    for action in json.loads(
-                        llm_output.split("⟦status:start:action⟧")[-1]
-                        .split("⟦status:end:action⟧")[0]
-                        .strip(),
-                    )
-                ],
-            }
+        if isinstance(actions, dict):
+            actions = [actions]
+        return {
+            "type": "action",
+            "thought": llm_output.split("⟦status:start:thought⟧")[-1]
+            .split("⟦status:end:thought⟧")[0]
+            .strip(),
+            "actions": [
+                f"{action['name']}({', '.join([f'{k}={v if isinstance(v, int) else repr(v)}' for k, v in action['inputs'].items()])})"
+                for action in json.loads(
+                    llm_output.split("⟦status:start:action⟧")[-1]
+                    .split("⟦status:end:action⟧")[0]
+                    .strip(),
+                )
+            ],
+        }
 
     return {"type": "error", "error": f"Could not parse LLM output: {llm_output}"}
 
@@ -300,8 +271,9 @@ if __name__ == "__main__":
         # "삼성전자 외국인 거래량 알려줘?",
         # "삼성전자 주가는 얼마인가요?"
         # "삼성전자 주가랑 외국인 거래량 알려줘",
-        "2 * 15 * 300 은 삼성전자 외국인 매수량보다 많아?"
+        # "2 * 15 * 300 은 삼성전자 외국인 매수량보다 많아?"
         # "삼성전자 거래량 정보 알려줘.",
+        "오늘 삼성전자 주가를 알려줘",
         # "삼성전자 회사 정보랑 외국인 거래량 알려줘"
         # "2 * 15 랑 15 * 2 의 차이는 얼마야?",
         # "2 * 15 * 30 은 삼성전자 설립 년도보다 커?",

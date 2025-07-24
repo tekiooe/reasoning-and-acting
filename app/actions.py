@@ -14,6 +14,26 @@ logger = logging.getLogger(__name__)
 #         logger.error(f"Calculation error: {str(e)}")
 #         return f"Error: Calculation failed - {str(e)}"
 
+def news_analyze(jongCode: str) -> dict:
+    """
+    뉴스를 분석합니다.
+    """
+    return """API가 정상 응답했으나, 요청 조건에 해당하는 데이터가 존재하지 않습니다.
+동일한 조건으로 반복 호출해도 데이터가 없습니다. '데이터가 없음'을 결과로 활용하거나, 다른 function을 사용해 답변을 추론하세요."""
+
+def stock_list(
+    jongName: str
+) -> dict:
+    """
+    주식 종목 정보를 조회합니다.
+    
+    Parameters:
+        - top_k: 반환할 상위 결과의 개수
+        - jongName: 종목명, score: float (유사도 점수)
+    """
+    return {
+        "jongCode": "aaaaa"
+    }
 
 def calculate(expression: str) -> str:
     """수학 표현식 계산 (예: 'sqrt(16)')"""

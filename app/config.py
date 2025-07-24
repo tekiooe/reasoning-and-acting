@@ -22,20 +22,26 @@ class Config:
         else:
             # .env 파일이 없으면 기본값 사용
             print(f"Warning: .env file not found at {env_file}")
-
+            
     @property
-    def prompt_version(self) -> str:
-        """프롬프트 버전을 반환합니다."""
-        return os.getenv("PROMPT_VERSION", "default")
-
+    def model_name(self) -> str:
+        """모델 이름을 반환합니다."""
+        return os.getenv("MODEL_NAME", "gpt-4.1-mini")
+            
     @property
-    def prompt_template_name(self) -> str:
-        """프롬프트 템플릿 파일명을 반환합니다."""
-        version = self.prompt_version
-        if version == "default":
-            return "react_prompt_template_default.txt"
-        else:
-            return f"react_prompt_template_{version}.txt"
+    def openai_api_key(self) -> str:
+        """모델 이름을 반환합니다."""
+        return os.getenv("OPENAI_API_KEY", "xxx")
+    
+    @property
+    def anthropic_api_key(self) -> str:
+        """Anthropic API 키를 반환합니다."""
+        return os.getenv("ANTHROPIC_API_KEY", "xxx")
+    
+    @property
+    def google_api_key(self) -> str:
+        """Google API 키를 반환합니다."""
+        return os.getenv("GOOGLE_API_KEY", "xxx")
 
     @property
     def debug_mode(self) -> bool:
@@ -56,6 +62,25 @@ class Config:
     def temperature(self) -> float:
         """모델의 temperature를 반환합니다."""
         return float(os.getenv("TEMPERATURE", "0"))
+    
+    @property
+    def prompt_template_name(self) -> str:
+        """프롬프트 템플릿 파일명을 반환합니다."""
+        version = self.prompt_version
+        if version == "default":
+            return "react_prompt_template_default.txt"
+        else:
+            return f"react_prompt_template_{version}.txt"
+        
+    @property
+    def prompt_version(self) -> str:
+        """프롬프트 버전을 반환합니다."""
+        return os.getenv("PROMPT_VERSION", "default")
+    
+    @property
+    def is_reasoning(self) -> bool:
+        """추론 모델 사용 여부를 반환합니다."""
+        return os.getenv("REASONING", "False").lower() == "true"
 
     def get(self, key: str, default=None):
         """환경 변수 값을 반환합니다."""
