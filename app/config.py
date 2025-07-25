@@ -30,18 +30,27 @@ class Config:
             
     @property
     def openai_api_key(self) -> str:
-        """모델 이름을 반환합니다."""
-        return os.getenv("OPENAI_API_KEY", "xxx")
+        """OpenAI API 키를 반환합니다."""
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is not set")
+        return api_key
     
     @property
     def anthropic_api_key(self) -> str:
         """Anthropic API 키를 반환합니다."""
-        return os.getenv("ANTHROPIC_API_KEY", "xxx")
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
+        return api_key
     
     @property
     def google_api_key(self) -> str:
         """Google API 키를 반환합니다."""
-        return os.getenv("GOOGLE_API_KEY", "xxx")
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY environment variable is not set")
+        return api_key
 
     @property
     def debug_mode(self) -> bool:

@@ -19,22 +19,16 @@ reserved_keywords = {
 }
 
 
-def get_prompt_version() -> str:
+def get_prompt_version(prompt_file_path: str) -> str:
     """
     현재 프롬프트 버전을 반환합니다.
 
     Returns:
         str: 프롬프트 버전 정보
     """
-    # 프롬프트 파일의 수정 시간을 기반으로 버전 정보 생성
-    current_dir = Path(__file__).resolve()
-    prompt_file_path = (
-        current_dir.parent.parent / "prompts" / get_prompt_template_name()
-    )
-
     if prompt_file_path.exists():
         mtime = prompt_file_path.stat().st_mtime
-        return f"v1.0.{int(mtime)}"
+        return f"{prompt_file_path} ver.{int(mtime)}"
     else:
         return "unknown"
 
@@ -89,6 +83,9 @@ def load_prompt_template(template_name: str = get_prompt_template_name()) -> str
 
     with open(prompt_file_path, "r", encoding="utf-8") as f:
         prompt = f.read()
+
+    # 프롬프트 버전 정보 출력
+    print(f"{'='*10}Using prompt version: {get_prompt_version(prompt_file_path)}{'='*10}")
 
     # Filter out lines that start and end with /**** ****/: v8부터 Alpy 포맷으로 변경되었음.
     filtered_prompt = "\n".join(

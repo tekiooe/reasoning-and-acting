@@ -27,16 +27,23 @@ load_dotenv()
 
 
 # Initialize LLM client
-openai_models = ["gpt-4.1-mini", "gpt-4.1-nano"]
+openai_models = ["gpt-4.1-mini", "gpt-4.1-nano", "gpt-4.1", "gpt-4.5-preview", "gpt-4o", "gpt-4o-mini"]
+openai_reasoning_models = ["o1", "o1-pro", "o3-pro", "o3", "o3-deep-research", "o4-mini", "o4-mini-deep-research", "o3-mini", "o1-mini"]
 gemini_modles = ["gemini-2.5-flash", "gemini-2.5-flash-lite-preview-06-17"]
 claude_models = ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"]
 
-if config.model_name in openai_models:
-    llm = ChatOpenAI(temperature=0, openai_api_key=config.openai_api_key, model=config.model_name)
+print(f"************[ {config.model_name} ]************")
+if config.model_name in openai_reasoning_models:
+    llm = ChatOpenAI(openai_api_key=config.openai_api_key, model=config.model_name)
+elif config.model_name in openai_models + openai_reasoning_models:
+    llm = ChatOpenAI(temperature=config.temperature, openai_api_key=config.openai_api_key, model=config.model_name)
 elif config.model_name in gemini_modles:
-    llm = ChatGoogleGenerativeAI(temperature=0, google_api_key=config.google_api_key, model=config.model_name)
+    if config.is_reasoning:
+        llm = ChatGoogleGenerativeAI(temperature=config.temperature, google_api_key=config.google_api_key, model=config.model_name, additional_kwargs={"reasoning_mode": "enabled"})
+    else:
+        llm = ChatGoogleGenerativeAI(temperature=config.temperature, google_api_key=config.google_api_key, model=config.model_name)
 elif config.model_name in claude_models:
-    llm = ChatAnthropic(temperature=0, anthropic_api_key=config.anthropic_api_key, model=config.model_name)
+    llm = ChatAnthropic(temperature=config.temperature, anthropic_api_key=config.anthropic_api_key, model=config.model_name)
 else:
     raise ValueError(f"Unrecognized model name: {config.model_name}")
 
@@ -83,8 +90,8 @@ def parse_llm_output(llm_output: str) -> Dict[str, str]:
     # Look for Action and Action Input
     action_match = re.search(r"Action: (.*?)(?:\n|$)", llm_output)
 
-    if re.search(r"Action: (.*?)(?:\n|$)", llm_output):
-        # Split actions by '&&' and strip whitespace
+    if action_match:
+        # prompt v7 이전 버전용
         actions = [action.strip() for action in action_match.group(1).split("&&")]
         return {"type": "action", "actions": actions}
     elif (
@@ -111,6 +118,8 @@ def parse_llm_output(llm_output: str) -> Dict[str, str]:
                 )
             ],
         }
+    else:
+        print(f"************[llm_output]************\n{llm_output}\n********************************")
 
     return {"type": "error", "error": f"Could not parse LLM output: {llm_output}"}
 
@@ -255,9 +264,6 @@ def run_react_agent(params: dict) -> str:
 
 
 if __name__ == "__main__":
-    # 프롬프트 버전 정보 출력
-    print(f"{'='*10}Using prompt version: {get_prompt_version()}{'='*10}")
-
     # Test with different types of queries
     test_queries = [
         # "What is 15 * 23?",
@@ -273,10 +279,13 @@ if __name__ == "__main__":
         # "삼성전자 주가랑 외국인 거래량 알려줘",
         # "2 * 15 * 300 은 삼성전자 외국인 매수량보다 많아?"
         # "삼성전자 거래량 정보 알려줘.",
-        "오늘 삼성전자 주가를 알려줘",
+        # "오늘 삼성전자 주가를 알려줘",
         # "삼성전자 회사 정보랑 외국인 거래량 알려줘"
         # "2 * 15 랑 15 * 2 의 차이는 얼마야?",
         # "2 * 15 * 30 은 삼성전자 설립 년도보다 커?",
+        # "오늘 점심 메뉴 뭐였어?",
+        # "주식 거래 가이드 알려줘"
+        "PER이 뭐야?"
     ]
 
     for query in test_queries:
