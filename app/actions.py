@@ -18,11 +18,14 @@ def news_analyze(jongCode: str) -> dict:
     """
     뉴스를 분석합니다.
     """
-    return """API가 정상 응답했으나, 요청 조건에 해당하는 데이터가 존재하지 않습니다.
-동일한 조건으로 반복 호출해도 데이터가 없습니다. '데이터가 없음'을 결과로 활용하거나, 다른 function을 사용해 답변을 추론하세요."""
+    return {
+        "code": 200,
+        "result": None
+    }
 
 def stock_list(
-    jongName: str
+    jongName: str,
+    top_k: int = 5,
 ) -> dict:
     """
     주식 종목 정보를 조회합니다.
@@ -31,9 +34,21 @@ def stock_list(
         - top_k: 반환할 상위 결과의 개수
         - jongName: 종목명, score: float (유사도 점수)
     """
-    return {
-        "jongCode": "aaaaa"
-    }
+    return [
+        {
+            "jongName": "삼성전자",
+            "jongCode": "0000000590"
+        },
+        {
+            "jongName": "현대자동차",
+            "jongCode": "0000001928"
+        },
+        {
+            "jongName": "SK하이닉스",
+            "jongCode": "0000000182"
+        },
+        
+    ]
 
 def calculate(expression: str) -> str:
     """수학 표현식 계산 (예: 'sqrt(16)')"""
@@ -67,7 +82,6 @@ def calculate(expression: str) -> str:
     except Exception as err:
         logger.error(f"Calculation error: {str(err)}")
         return f"Error: Calculation failed - {str(err)}"
-
 
 def search_wikipedia(query: str) -> str:
     """위키백과 검색 결과 요약"""
@@ -110,7 +124,6 @@ def search_wikipedia(query: str) -> str:
         logger.error(f"Unexpected error in Wikipedia search: {str(e)}")
         return f"Error: Unexpected error occurred - {str(e)}"
 
-
 def company_basic_information(jongCode: str) -> dict:
     """
     회사명, 회사 정보, 웹사이트, CEO, 기업 정보 요약, 액면가, 결산월, 발행주식수, 상장일, 업종
@@ -118,23 +131,33 @@ def company_basic_information(jongCode: str) -> dict:
     Parameters:
         - jongCode: 종목 코드
     """
-    print(f"company_basic_information: jongCode={jongCode}")
-    return {
-        "isuNm": "삼성전자",
-        "isuEngNm": "Samsung Electronics",
-        "foundDd": "2017/04/25",
-        "ceo": "김우승",
-        "addr": "서울특별시 강남구 테헤란로 309 삼성제일빌딩, 5층",
-        "corpTelNo": "02-6954-2960",
-        "hpage": "www.crowdworks.kr",
-        "parval": 0,
-        "acntclsMm": 12,
-        "listShrs": 0,
-        "sectNm": "기술성장기업부",
-        "listDd": "2023/08/31",
-        "indNm": "소프트웨어 개발 및 공급",
-        "summary": "주요 사업으로는 인공지능 데이터 구축 서비스 ...",
-    }
+    if jongCode == "0000000590":
+        return {
+            "isuNm": "삼성전자",
+            "isuEngNm": "Samsung Electronics",
+            "foundDd": "1975/6/11",
+            "ceo": "전영현",
+            "addr": "경기 수원시 영통구 삼성로 129 (매탄동, 삼성전자)",
+            "corpTelNo": "02-2255-0114",
+            "hpage": "www.samsung.com",
+        }
+    else:
+        return {
+            "isuNm": "크라우드웍스",
+            "isuEngNm": "Crowdworks Inc.",
+            "foundDd": "2017/04/25",
+            "ceo": "김우승",
+            "addr": "서울특별시 강남구 테헤란로 309 삼성제일빌딩, 5층",
+            "corpTelNo": "02-6954-2960",
+            "hpage": "www.crowdworks.kr",
+            "parval": 0,
+            "acntclsMm": 12,
+            "listShrs": 0,
+            "sectNm": "기술성장기업부",
+            "listDd": "2023/08/31",
+            "indNm": "소프트웨어 개발 및 공급",
+            "summary": "주요 사업으로는 인공지능 데이터 구축 서비스 ...",
+        }
 
 
 def stock_trade_information(jongCode: str, fromDate: str, toDate: str) -> dict:
@@ -172,15 +195,28 @@ def stock_trade_information(jongCode: str, fromDate: str, toDate: str) -> dict:
     }
 
 
-def trading_guide(question: str = "default") -> dict:
+def trading_guide(question: str) -> dict:
     """
     주식거래에 있어 도움이 될 부가 정보 검색
 
     Parameters:
         - question: 검색할 질문
     """
-    question = "주식 거래 가이드"
-    return {"answer": "응답"}
+    from config import config
+    from openai import OpenAI
+
+    client = OpenAI(api_key=config.openai_api_key)
+
+    response = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {"role": "system", "content": "주식거래와 투자에 대한 전문가로서 주식거래에 있어 도움이 될 부가 정보를 제공합니다. 답변은 500자 내외로 간단하고 명료하게 작성하세요."},
+            {"role": "user", "content": question}
+        ]
+    )
+
+    answer = response.choices[0].message.content
+    return {"answer": answer}
 
 
 def finance_terms_and_basic_knowledge(question: str = "default") -> dict:
@@ -190,8 +226,22 @@ def finance_terms_and_basic_knowledge(question: str = "default") -> dict:
     Parameters:
         - question: 검색할 질문
     """
-    print(f"finance_terms_and_basic_knowledge: question={question}")
-    return {"answer": "응답"}
+    
+    from config import config
+    from openai import OpenAI
+
+    client = OpenAI(api_key=config.openai_api_key)
+
+    response = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {"role": "system", "content": "주식거래와 투자에 대한 전문가로서 기본적인 금융(주식) 용어 및 (투자) 이론 및 실전 정보, 투자 방법을 제공합니다. 답변은 500자 내외로 간단하고 명료하게 작성하세요."},
+            {"role": "user", "content": question}
+        ]
+    )
+
+    answer = response.choices[0].message.content
+    return {"answer": answer}
 
 
 def get_upCode(top_k: int = 5, indexName: str = "default") -> dict:
@@ -202,7 +252,6 @@ def get_upCode(top_k: int = 5, indexName: str = "default") -> dict:
         - top_k: 반환할 상위 결과의 개수
         - indexName: 인덱스 명, score: float (유사도 점수)
     """
-    print(f"get_upCode: top_k={top_k}, indexName={indexName}")
     return {"upCode": None}
 
 
@@ -231,5 +280,7 @@ def get_jongCode(top_k: int = 1, jongName: str = "default") -> dict:
         - top_k: 반환할 상위 결과의 개수
         - jongName: 종목명(회사명), score: float (유사도 점수)
     """
-    print(f"get_jongCode: top_k={top_k}, jongName={jongName}")
-    return {"jongCode": "000029839300"}
+    if jongName == "삼성전자":
+        return {"jongCode": "0000000590"}
+    else:
+        return {"jongCode": "0000001928"}
