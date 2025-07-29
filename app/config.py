@@ -89,7 +89,7 @@ class Config:
     @property
     def is_reasoning(self) -> bool:
         """추론 모델 사용 여부를 반환합니다."""
-        return os.getenv("REASONING", "False").lower() == "true"
+        return os.getenv("REASONING", "false").lower() == "true"
 
     def get(self, key: str, default=None):
         """환경 변수 값을 반환합니다."""
