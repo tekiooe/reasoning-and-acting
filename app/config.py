@@ -22,12 +22,12 @@ class Config:
         else:
             # .env 파일이 없으면 기본값 사용
             print(f"Warning: .env file not found at {env_file}")
-            
+
     @property
     def model_name(self) -> str:
         """모델 이름을 반환합니다."""
         return os.getenv("MODEL_NAME", "gpt-4.1-mini")
-            
+
     @property
     def openai_api_key(self) -> str:
         """OpenAI API 키를 반환합니다."""
@@ -35,7 +35,7 @@ class Config:
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is not set")
         return api_key
-    
+
     @property
     def anthropic_api_key(self) -> str:
         """Anthropic API 키를 반환합니다."""
@@ -43,7 +43,7 @@ class Config:
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
         return api_key
-    
+
     @property
     def google_api_key(self) -> str:
         """Google API 키를 반환합니다."""
@@ -71,7 +71,7 @@ class Config:
     def temperature(self) -> float:
         """모델의 temperature를 반환합니다."""
         return float(os.getenv("TEMPERATURE", "0"))
-    
+
     @property
     def prompt_template_name(self) -> str:
         """프롬프트 템플릿 파일명을 반환합니다."""
@@ -80,12 +80,12 @@ class Config:
             return "react_prompt_template_default.txt"
         else:
             return f"react_prompt_template_{version}.txt"
-        
+
     @property
     def prompt_version(self) -> str:
         """프롬프트 버전을 반환합니다."""
         return os.getenv("PROMPT_VERSION", "default")
-    
+
     @property
     def is_reasoning(self) -> bool:
         """추론 모델 사용 여부를 반환합니다."""

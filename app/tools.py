@@ -14,8 +14,8 @@ from actions import (
 
 tools = {
     "news_analyze": {
-      "func": news_analyze,
-      "description": """
+        "func": news_analyze,
+        "description": """
 def news_analyze(
     jongCode: str,
 ) -> dict:
@@ -30,11 +30,11 @@ def news_analyze(
     \"page\": 9,
     \"jongCode\": \"string\"
 }
-"""
+""",
     },
     "stock_list": {
-      "func": stock_list,
-      "description": """
+        "func": stock_list,
+        "description": """
 def stock_list(
     top_k: int = 5,
     jongName: str
@@ -49,7 +49,7 @@ def stock_list(
     \"jongCode\": \"string\"
 }
 
-"""  
+""",
     },
     "calculate": {
         "func": calculate,

@@ -5,16 +5,17 @@ from functools import reduce
 from datetime import datetime
 
 reserved_keywords = {
-    "{{param::assistant_role::textarea}}": "{assistant_role}",
-    "{{param::user_role::textarea}}": "{user_role}",
+    "{{param::assistant_role}}": "{assistant_role}",
+    "{{param::user_role}}": "{user_role}",
     "{{resv::TODAY_DATE}}": "{today_date}",
     "{{resv::CURRENT_YEAR}}": "{current_year}",
     "{{resv::NEXT_YEAR}}": "{next_year}",
     "{{choices::functions::inferenceUnit::multi}}": "{tools_description}",
     # "{{param::observations::textarea}}": "{history_text}",
     "{{param::user_query::textfield}}": "{query}",
-    "{{param::react_history::textarea}}": "{agent_scratchpad}",
-    "{{param::iters}}": "{iters}",
+    "{{state::react_history}}": "{agent_scratchpad}",
+    "{{param::iterations}}": "{iters}",
+    "{{state::remaining_iterations}}": "{iter_remaining}",
     "{{param::max_iters}}": "{max_iterations}",
 }
 
@@ -85,7 +86,9 @@ def load_prompt_template(template_name: str = get_prompt_template_name()) -> str
         prompt = f.read()
 
     # 프롬프트 버전 정보 출력
-    print(f"{'='*10}Using prompt version: {get_prompt_version(prompt_file_path)}{'='*10}")
+    print(
+        f"{'='*10}Using prompt version: {get_prompt_version(prompt_file_path)}{'='*10}"
+    )
 
     # Filter out lines that start and end with /**** ****/: v8부터 Alpy 포맷으로 변경되었음.
     filtered_prompt = "\n".join(

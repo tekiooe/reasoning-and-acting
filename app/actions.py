@@ -14,14 +14,13 @@ logger = logging.getLogger(__name__)
 #         logger.error(f"Calculation error: {str(e)}")
 #         return f"Error: Calculation failed - {str(e)}"
 
+
 def news_analyze(jongCode: str) -> dict:
     """
     뉴스를 분석합니다.
     """
-    return {
-        "code": 200,
-        "result": None
-    }
+    return {"code": 200, "result": None}
+
 
 def stock_list(
     jongName: str,
@@ -29,26 +28,17 @@ def stock_list(
 ) -> dict:
     """
     주식 종목 정보를 조회합니다.
-    
+
     Parameters:
         - top_k: 반환할 상위 결과의 개수
         - jongName: 종목명, score: float (유사도 점수)
     """
     return [
-        {
-            "jongName": "삼성전자",
-            "jongCode": "0000000590"
-        },
-        {
-            "jongName": "현대자동차",
-            "jongCode": "0000001928"
-        },
-        {
-            "jongName": "SK하이닉스",
-            "jongCode": "0000000182"
-        },
-        
+        {"jongName": "삼성전자", "jongCode": "0000000590"},
+        {"jongName": "현대자동차", "jongCode": "0000001928"},
+        {"jongName": "SK하이닉스", "jongCode": "0000000182"},
     ]
+
 
 def calculate(expression: str) -> str:
     """수학 표현식 계산 (예: 'sqrt(16)')"""
@@ -82,6 +72,7 @@ def calculate(expression: str) -> str:
     except Exception as err:
         logger.error(f"Calculation error: {str(err)}")
         return f"Error: Calculation failed - {str(err)}"
+
 
 def search_wikipedia(query: str) -> str:
     """위키백과 검색 결과 요약"""
@@ -123,6 +114,7 @@ def search_wikipedia(query: str) -> str:
     except Exception as e:
         logger.error(f"Unexpected error in Wikipedia search: {str(e)}")
         return f"Error: Unexpected error occurred - {str(e)}"
+
 
 def company_basic_information(jongCode: str) -> dict:
     """
@@ -210,9 +202,12 @@ def trading_guide(question: str) -> dict:
     response = client.chat.completions.create(
         model="gpt-4.1-mini",
         messages=[
-            {"role": "system", "content": "주식거래와 투자에 대한 전문가로서 주식거래에 있어 도움이 될 부가 정보를 제공합니다. 답변은 500자 내외로 간단하고 명료하게 작성하세요."},
-            {"role": "user", "content": question}
-        ]
+            {
+                "role": "system",
+                "content": "주식거래와 투자에 대한 전문가로서 주식거래에 있어 도움이 될 부가 정보를 제공합니다. 답변은 500자 내외로 간단하고 명료하게 작성하세요.",
+            },
+            {"role": "user", "content": question},
+        ],
     )
 
     answer = response.choices[0].message.content
@@ -226,7 +221,7 @@ def finance_terms_and_basic_knowledge(question: str = "default") -> dict:
     Parameters:
         - question: 검색할 질문
     """
-    
+
     from config import config
     from openai import OpenAI
 
@@ -235,9 +230,12 @@ def finance_terms_and_basic_knowledge(question: str = "default") -> dict:
     response = client.chat.completions.create(
         model="gpt-4.1-mini",
         messages=[
-            {"role": "system", "content": "주식거래와 투자에 대한 전문가로서 기본적인 금융(주식) 용어 및 (투자) 이론 및 실전 정보, 투자 방법을 제공합니다. 답변은 500자 내외로 간단하고 명료하게 작성하세요."},
-            {"role": "user", "content": question}
-        ]
+            {
+                "role": "system",
+                "content": "주식거래와 투자에 대한 전문가로서 기본적인 금융(주식) 용어 및 (투자) 이론 및 실전 정보, 투자 방법을 제공합니다. 답변은 500자 내외로 간단하고 명료하게 작성하세요.",
+            },
+            {"role": "user", "content": question},
+        ],
     )
 
     answer = response.choices[0].message.content
@@ -282,5 +280,7 @@ def get_jongCode(top_k: int = 1, jongName: str = "default") -> dict:
     """
     if jongName == "삼성전자":
         return {"jongCode": "0000000590"}
-    else:
+    elif jongName == "크라우드웍스":
         return {"jongCode": "0000001928"}
+    else:
+        return {"jongCode": "0000004444"}
