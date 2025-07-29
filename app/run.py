@@ -14,7 +14,7 @@ from datetime import datetime
 
 # Add parent directory to path to import re_act_actions
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from prompt_utils import get_prompt_version, load_prompt_template
+from prompt_utils import load_prompt_template
 from tools import tools
 from config import config
 
@@ -27,23 +27,69 @@ load_dotenv()
 
 
 # Initialize LLM client
-openai_models = ["gpt-4.1-mini", "gpt-4.1-nano", "gpt-4.1", "gpt-4.5-preview", "gpt-4o", "gpt-4o-mini"]
-openai_reasoning_models = ["o1", "o1-pro", "o3-pro", "o3", "o3-deep-research", "o4-mini", "o4-mini-deep-research", "o3-mini", "o1-mini"]
-gemini_modles = ["gemini-2.5-flash", "gemini-2.5-flash-lite-preview-06-17"]
-claude_models = ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"]
+openai_models = [
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    "gpt-4.1",
+    "gpt-4.5-preview",
+    "gpt-4o",
+    "gpt-4o-mini",
+]
+openai_reasoning_models = [
+    "o1",
+    "o1-pro",
+    "o3-pro",
+    "o3",
+    "o3-deep-research",
+    "o4-mini",
+    "o4-mini-deep-research",
+    "o3-mini",
+    "o1-mini",
+]
+gemini_models = [
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash-lite-preview-06-17",
+]
+claude_models = [
+    "claude-sonnet-4-20250514",
+    "claude-3-7-sonnet-20250219",
+    "claude-3-5-sonnet-20241022",
+    "claude-3-5-sonnet-20240620",
+    "claude-3-5-haiku-20241022",
+    "claude-3-haiku-20240307",
+]
 
 print(f"************[ {config.model_name} ]************")
 if config.model_name in openai_reasoning_models:
     llm = ChatOpenAI(openai_api_key=config.openai_api_key, model=config.model_name)
 elif config.model_name in openai_models + openai_reasoning_models:
-    llm = ChatOpenAI(temperature=config.temperature, openai_api_key=config.openai_api_key, model=config.model_name)
-elif config.model_name in gemini_modles:
+    llm = ChatOpenAI(
+        temperature=config.temperature,
+        openai_api_key=config.openai_api_key,
+        model=config.model_name,
+    )
+elif config.model_name in gemini_models:
     if config.is_reasoning:
-        llm = ChatGoogleGenerativeAI(temperature=config.temperature, google_api_key=config.google_api_key, model=config.model_name, additional_kwargs={"reasoning_mode": "enabled"})
+        llm = ChatGoogleGenerativeAI(
+            google_api_key=config.google_api_key,
+            model=config.model_name,
+            additional_headers={"reasoning_mode": "enabled"},
+            disable_streaming=True,
+        )
     else:
-        llm = ChatGoogleGenerativeAI(temperature=config.temperature, google_api_key=config.google_api_key, model=config.model_name)
+        llm = ChatGoogleGenerativeAI(
+            temperature=config.temperature,
+            google_api_key=config.google_api_key,
+            model=config.model_name,
+            disable_streaming=True,
+        )
 elif config.model_name in claude_models:
-    llm = ChatAnthropic(temperature=config.temperature, anthropic_api_key=config.anthropic_api_key, model=config.model_name)
+    llm = ChatAnthropic(
+        temperature=config.temperature,
+        anthropic_api_key=config.anthropic_api_key,
+        model=config.model_name,
+    )
 else:
     raise ValueError(f"Unrecognized model name: {config.model_name}")
 
@@ -88,7 +134,8 @@ def parse_llm_output(llm_output: str) -> Dict[str, str]:
         }
 
     # Look for Action and Action Input
-    action_match = re.search(r"Action: (.*?)(?:\n|$)", llm_output)
+    # action_match = re.search(r"Action: (.*?)(?:\n|$)", llm_output)
+    action_match = False
 
     if action_match:
         # prompt v7 이전 버전용
@@ -98,10 +145,10 @@ def parse_llm_output(llm_output: str) -> Dict[str, str]:
         "⟦status:start:thought⟧" in llm_output and "⟦status:start:action⟧" in llm_output
     ):
         actions = json.loads(
-                    llm_output.split("⟦status:start:action⟧")[-1]
-                    .split("⟦status:end:action⟧")[0]
-                    .strip(),
-                )
+            llm_output.split("⟦status:start:action⟧")[-1]
+            .split("⟦status:end:action⟧")[0]
+            .strip(),
+        )
         if isinstance(actions, dict):
             actions = [actions]
         return {
@@ -111,15 +158,13 @@ def parse_llm_output(llm_output: str) -> Dict[str, str]:
             .strip(),
             "actions": [
                 f"{action['name']}({', '.join([f'{k}={v if isinstance(v, int) else repr(v)}' for k, v in action['inputs'].items()])})"
-                for action in json.loads(
-                    llm_output.split("⟦status:start:action⟧")[-1]
-                    .split("⟦status:end:action⟧")[0]
-                    .strip(),
-                )
+                for action in actions
             ],
         }
     else:
-        print(f"************[llm_output]************\n{llm_output}\n********************************")
+        print(
+            f"************[llm_output]************\n{llm_output}\n********************************"
+        )
 
     return {"type": "error", "error": f"Could not parse LLM output: {llm_output}"}
 
@@ -154,24 +199,17 @@ def execute_tool(action: str) -> str:
         logger.error(f" >>>> Error executing action {action}: {str(e)}")
         return f"Action Execution Error: {str(e)}"
 
+
 def format_observation(result_data: str) -> str:
     if isinstance(result_data, list):
         # Handle list of dictionaries
         if result_data:  # Check if list is not empty
-            result_md = (
-                "| " + " | ".join(result_data[0].keys()) + " |\n"
-            )
+            result_md = "| " + " | ".join(result_data[0].keys()) + " |\n"
             result_md += (
-                "| "
-                + " | ".join(["---"] * len(result_data[0].keys()))
-                + " |\n"
+                "| " + " | ".join(["---"] * len(result_data[0].keys())) + " |\n"
             )
             for row in result_data:
-                result_md += (
-                    "| "
-                    + " | ".join(str(v) for v in row.values())
-                    + " |\n"
-                )
+                result_md += "| " + " | ".join(str(v) for v in row.values()) + " |\n"
             result_md = result_md.rstrip()  # Remove trailing newline
         else:
             result_md = "Empty result list"
@@ -179,19 +217,12 @@ def format_observation(result_data: str) -> str:
         result_md = str(result_data)
         # Handle single dictionary
         result_md = "| " + " | ".join(result_data.keys()) + " |\n"
-        result_md += (
-            "| "
-            + " | ".join(["---"] * len(result_data.keys()))
-            + " |\n"
-        )
-        result_md += (
-            "| "
-            + " | ".join(str(v) for v in result_data.values())
-            + " |"
-        )
+        result_md += "| " + " | ".join(["---"] * len(result_data.keys())) + " |\n"
+        result_md += "| " + " | ".join(str(v) for v in result_data.values()) + " |"
     else:
         result_md = str(result_data)
     return result_md
+
 
 def run_react_agent(params: dict) -> str:
     """
@@ -204,17 +235,17 @@ def run_react_agent(params: dict) -> str:
     Returns:
         str: The agent's response
     """
-    try:
-        
-        while params["max_iterations"] > params["iters"]:
+    if True:  # try:
+
+        while params["max_iterations"] >= params["iters"]:
             params["iters"] += 1
+            params["iter_remaining"] -= 1
             # Create the prompt for this iteration
             prompt_template = load_prompt_template()
             # print(f"************[prompt_template]************\n{prompt_template}\n********************************")
-            prompt = PromptTemplate.from_template(
-                template=prompt_template
-            )
+            prompt = PromptTemplate.from_template(template=prompt_template)
             full_prompt = prompt.format(**params)
+            print(f"######################## {params["iter_remaining"]}")
 
             # print(
             #     f"************[prompt]************\n{full_prompt}\n********************************"
@@ -222,16 +253,21 @@ def run_react_agent(params: dict) -> str:
 
             # Get LLM response
             llm_response = llm.invoke(full_prompt)
+            print(
+                f"************[llm_response]************\n{llm_response.content}\n********************************"
+            )
 
             # ChatOpenAI는 AIMessage 객체를 반환하므로 content를 추출
-            llm_response_text = (
-                llm_response.content
-                if hasattr(llm_response, "content")
-                else str(llm_response)
-            )
-            print(
-                f"************[llm_response]************\n{llm_response_text}\n********************************"
-            )
+            llm_response_text = ""
+            if isinstance(llm_response, list):
+                for message in llm_response:
+                    llm_response_text += message.replace("\n", "\\n")
+            else:
+                llm_response_text = (
+                    llm_response.content
+                    if hasattr(llm_response, "content")
+                    else str(llm_response)
+                )
 
             # Parse the response
             parsed = parse_llm_output(llm_response_text)
@@ -245,12 +281,16 @@ def run_react_agent(params: dict) -> str:
                 actions_history = []
                 for action in parsed["actions"]:
                     actions_history.append(action)
-                    observation += f"## {action}\n" + format_observation(execute_tool(action)) + "\n\n"
+                    observation += (
+                        f"## {action}\n"
+                        + format_observation(execute_tool(action))
+                        + "\n\n"
+                    )
 
                 # Add to scratchpad
-                params["agent_scratchpad"] += (
-                    f"\nThought: {parsed['thought']}\n\nAction: {' && '.join(actions_history)}\n\nObservation: \n{observation}"
-                )
+                params[
+                    "agent_scratchpad"
+                ] += f"\nThought: {parsed['thought']}\n\nAction: {' && '.join(actions_history)}\n\nObservation: \n{observation}"
                 print(f"### params['agent_scratchpad']: {params['agent_scratchpad']}")
 
             else:
@@ -258,9 +298,9 @@ def run_react_agent(params: dict) -> str:
 
         return f"Error: Maximum iterations ({params['max_iterations']}) reached without finding a final answer."
 
-    except Exception as e:
-        logger.error(f"Error running ReAct agent: {str(e)}")
-        return f"Error: {str(e)}"
+    # except Exception as e:
+    #     logger.error(f"Error running ReAct agent: {str(e)}")
+    #     return f"Error: {str(e)}"
 
 
 if __name__ == "__main__":
@@ -272,20 +312,23 @@ if __name__ == "__main__":
         # "Tell me about Samsung Electronics stock code",
         # "삼성전자 종목 코드 알려줘.",
         # "compare the bigger: 15 * 23 and the square root of 144",
-        # "삼성전자 회사 정보 알려줘.",
-        # "삼성전자 거래 정보 요약해줘.",
+        "삼성전자 회사 정보 알려줘.",
+        "삼성전자 거래 정보 요약해줘.",
         # "삼성전자 외국인 거래량 알려줘?",
-        # "삼성전자 주가는 얼마인가요?"
-        # "삼성전자 주가랑 외국인 거래량 알려줘",
-        # "2 * 15 * 300 은 삼성전자 외국인 매수량보다 많아?"
+        "삼성전자 주가는 얼마인가요?" "삼성전자 주가랑 외국인 거래량 알려줘",
+        "2 * 15 * 300 은 삼성전자 외국인 매수량보다 많아?"
         # "삼성전자 거래량 정보 알려줘.",
         # "오늘 삼성전자 주가를 알려줘",
         # "삼성전자 회사 정보랑 외국인 거래량 알려줘"
         # "2 * 15 랑 15 * 2 의 차이는 얼마야?",
-        # "2 * 15 * 30 은 삼성전자 설립 년도보다 커?",
-        # "오늘 점심 메뉴 뭐였어?",
-        # "주식 거래 가이드 알려줘"
-        "PER이 뭐야?"
+        "2 * 15 * 30 은 삼성전자 설립 년도보다 커?",
+        "오늘 점심 메뉴 뭐였어?",
+        "주식 거래 가이드 알려줘"
+        "PER이 뭐야? 그리고 현재 이익이 1000원이고 주가가 10000원이야. 그럼 PER는 몇이야?",
+        "1+1을 하고, 거기에 3을 곱하고, 거기에 5를 더하고, 거기에 10을 곱하고, 거기에 10을 나눠. 그럼 얼마야?",
+        "삼성전자 종목 코드의 각 자리 수를 더하고, 그 결과를 10으로 나눠. 그리고 삼성전자의 전화번호 각 자리 수를 더해. 또, 크라우드웍스의 2025년 6월 25일 외국인 매도 수량에서 이 모든 값을 빼. 그럼 얼마야?",
+        "멍청이야",
+        "랒드2ㅡ33 3ㄱ3ㅡ2ㅏㅣ",
     ]
 
     for query in test_queries:
@@ -307,6 +350,7 @@ if __name__ == "__main__":
                 "agent_scratchpad": "",
                 "iters": 0,
                 "max_iterations": int(os.getenv("MAX_ITERATIONS", 10)),
+                "iter_remaining": int(os.getenv("MAX_ITERATIONS", 10)),
             }
         )
         print(f"\n{'='*50}")
