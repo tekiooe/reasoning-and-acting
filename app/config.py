@@ -65,7 +65,12 @@ class Config:
     @property
     def max_tokens(self) -> int:
         """최대 토큰 수를 반환합니다."""
-        return int(os.getenv("MAX_TOKENS", "1000"))
+        return int(os.getenv("MAX_TOKENS", "2048"))
+    
+    @property
+    def thinking_budget_tokens(self) -> int:
+        """추론 모델 사용 여부를 반환합니다."""
+        return int(os.getenv("THINKING_BUDGET_TOKENS", "1024"))
 
     @property
     def temperature(self) -> float:

@@ -85,11 +85,20 @@ elif config.model_name in gemini_models:
             disable_streaming=True,
         )
 elif config.model_name in claude_models:
-    llm = ChatAnthropic(
-        temperature=config.temperature,
-        anthropic_api_key=config.anthropic_api_key,
-        model=config.model_name,
-    )
+    if config.is_reasoning:
+        llm = ChatAnthropic(
+            anthropic_api_key=config.anthropic_api_key,
+            model=config.model_name,
+            max_tokens=config.max_tokens,
+            thinking={"type": "enabled", "budget_tokens": config.thinking_budget_tokens},
+        )
+    else:
+        llm = ChatAnthropic(
+            anthropic_api_key=config.anthropic_api_key,
+            model=config.model_name,
+            max_tokens=config.max_tokens,
+            thinking={"type": "disabled"},
+        )
 else:
     raise ValueError(f"Unrecognized model name: {config.model_name}")
 
